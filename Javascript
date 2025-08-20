@@ -1,9 +1,139 @@
+// ==== CONFIGURAÇÕES ====
+// Preencha com os dados do seu projeto Firebase (Config do app Web)
 const firebaseConfig = {
-  apiKey: "AIzaS...sua_chave",
-  authDomain: "cha-de-panela.firebaseapp.com",
-  databaseURL: "https://cha-de-panela-default-rtdb.firebaseio.com",
-  projectId: "cha-de-panela",
-  storageBucket: "cha-de-panela.appspot.com",
-  messagingSenderId: "1234567890",
-  appId: "1:1234567890:web:abcdefg12345"
+  apiKey: "COLOQUE_AQUI",
+  authDomain: "COLOQUE_AQUI.firebaseapp.com",
+  databaseURL: "https://COLOQUE_AQUI-default-rtdb.firebaseio.com",
+  projectId: "COLOQUE_AQUI",
+  storageBucket: "COLOQUE_AQUI.appspot.com",
+  messagingSenderId: "COLOQUE_AQUI",
+  appId: "COLOQUE_AQUI"
 };
+
+// Código do evento padrão
+const DEFAULT_EVENT_CODE = "meu-cha";
+
+// ==== FIM DAS CONFIGS ====
+
+let app, auth, db, currentUID = null, eventCode = null;
+const listEl = document.getElementById('gift-list');
+const emptyMsgEl = document.getElementById('empty-msg');
+const nameInput = document.getElementById('guest-name');
+const refreshBtn = document.getElementById('refresh');
+const seedBtn = document.getElementById('seed-btn');
+const clearBtn = document.getElementById('clear-btn');
+const seedText = document.getElementById('seed-text');
+const adminPanel = document.getElementById('admin-panel');
+const eventLabel = document.getElementById('event-code');
+
+function qparam(name){ const url = new URL(window.location.href); return url.searchParams.get(name);}
+function showToast(msg){ alert(msg); }
+
+function giftRef(){ return db.ref(`/events/${eventCode}/gifts`); }
+
+function renderGift(id, data){
+  const li = document.createElement('li');
+  li.className = 'gift';
+  const title = document.createElement('div');
+  title.className = 'title';
+  title.textContent = data.title;
+  const row = document.createElement('div'); row.className = 'row';
+  const badge = document.createElement('span'); badge.className = 'badge';
+  const btn = document.createElement('button');
+  const taken = !!data.claimed_by;
+  if (taken){
+    badge.textContent = `Reservado por ${data.claimed_by}`;
+    badge.classList.add('reserved');
+    btn.textContent = (data.claimed_by_uid === currentUID) ? 'Trocar escolha' : 'Indisponível';
+    btn.disabled = (data.claimed_by_uid !== currentUID);
+    btn.className = (data.claimed_by_uid !== currentUID) ? '' : 'danger';
+  } else {
+    badge.textContent = 'Disponível';
+    badge.classList.add('taken');
+    btn.textContent = 'Reservar';
+    btn.className = 'primary';
+  }
+  btn.addEventListener('click', () => {
+    if (!nameInput.value.trim()){ showToast('Digite seu nome antes de reservar.'); nameInput.focus(); return;}
+    if (taken){ trocarEscolha(id); } else { reservar(id); }
+  });
+  row.appendChild(badge); row.appendChild(btn);
+  li.appendChild(title); li.appendChild(row);
+  return li;
+}
+
+function renderList(snapshot){
+  listEl.innerHTML = '';
+  const gifts = snapshot.val() || {};
+  const ids = Object.keys(gifts);
+  if (ids.length === 0){ emptyMsgEl.style.display = 'block'; return; }
+  emptyMsgEl.style.display = 'none';
+  ids.sort((a,b) => gifts[a].title.localeCompare(gifts[b].title));
+  ids.forEach(id => listEl.appendChild(renderGift(id, gifts[id])));
+}
+
+function reservar(id){
+  const userName = nameInput.value.trim();
+  const ref = giftRef().child(id);
+  ref.transaction(current => {
+    if (!current) return current;
+    if (current.claimed_by) return;
+    return {...current, claimed_by: userName, claimed_by_uid: currentUID, claimed_at: firebase.database.ServerValue.TIMESTAMP};
+  }, (error, committed, snapshot) => {
+    if (error){ console.error(error); showToast('Erro ao reservar.'); } 
+    else if (!committed){ showToast('Ops! Este presente foi reservado por outra pessoa.'); } 
+    else { showToast('Presente reservado com sucesso!'); }
+  });
+}
+
+async function trocarEscolha(novoId){
+  const giftsSnap = await giftRef().get();
+  const gifts = giftsSnap.val() || {};
+  let atualId = null;
+  for (const [gid, g] of Object.entries(gifts)){ if (g.claimed_by_uid === currentUID){ atualId = gid; break; } }
+  const updates = {};
+  if (atualId){ updates[`${atualId}/claimed_by`] = null; updates[`${atualId}/claimed_by_uid`] = null; updates[`${atualId}/claimed_at`] = null; }
+  await giftRef().update(updates);
+  reservar(novoId);
+}
+
+function seedListFromText(){
+  const lines = seedText.value.split('\\n').map(s => s.trim()).filter(Boolean);
+  if (lines.length === 0){ showToast('Cole ao menos 1 item.'); return; }
+  const updates = {};
+  lines.forEach(line => { const id = db.ref().push().key; updates[`${id}`] = { title: line }; });
+  giftRef().update(updates).then(() => showToast('Lista carregada!'));
+}
+
+function clearAll(){
+  if (!confirm('Tem certeza que deseja APAGAR todos os presentes?')) return;
+  giftRef().set(null).then(() => showToast('Lista apagada.'));
+}
+
+function initAdmin(){
+  const isAdmin = qparam('admin') === '1';
+  if (isAdmin){
+    adminPanel.style.display = '';
+    seedBtn.addEventListener('click', seedListFromText);
+    clearBtn.addEventListener('click', clearAll);
+  }
+}
+
+function bindLive(){
+  giftRef().on('value', renderList);
+  refreshBtn.addEventListener('click', () => giftRef().once('value').then(renderList));
+}
+
+async function main(){
+  eventCode = qparam('evento') || DEFAULT_EVENT_CODE;
+  document.getElementById('event-code').textContent = eventCode;
+  app = firebase.initializeApp(firebaseConfig);
+  auth = firebase.auth();
+  db = firebase.database();
+  await auth.signInAnonymously();
+  currentUID = auth.currentUser ? auth.currentUser.uid : null;
+  initAdmin();
+  bindLive();
+}
+
+main().catch(err => { console.error(err); alert('Falha ao iniciar o app.'); });
