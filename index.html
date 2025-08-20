@@ -1,1 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lista de Presentes — Chá de Panela</title>
+  <link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+  <header>
+    <h1>🎁 Lista de Presentes — Chá de Panela</h1>
+    <p id="event-label">Evento: <span id="event-code">—</span></p>
+  </header>
 
+  <main>
+    <section class="box">
+      <h2>Como funciona</h2>
+      <ol>
+        <li>Digite seu nome.</li>
+        <li>Escolha um presente e clique em <strong>Reservar</strong>.</li>
+        <li>O item fica bloqueado para outras pessoas.</li>
+      </ol>
+      <div class="name-row">
+        <label for="guest-name">Seu nome:</label>
+        <input id="guest-name" type="text" placeholder="Ex.: Ana" maxlength="40"/>
+      </div>
+    </section>
+
+    <section class="box">
+      <div class="list-header">
+        <h2>Presentes</h2>
+        <button id="refresh">Atualizar</button>
+      </div>
+      <ul id="gift-list" class="gift-list"></ul>
+      <p id="empty-msg" class="muted" style="display:none;">Nenhum presente cadastrado ainda.</p>
+    </section>
+
+    <section id="admin-panel" class="box" style="display:none;">
+      <h2>Admin (opcional)</h2>
+      <p class="muted">Use este painel para <strong>carregar a lista de presentes</strong> a partir de um texto (1 item por linha).</p>
+      <textarea id="seed-text" rows="8" placeholder="Ex.:
+Conjunto de panelas
+Frigideira antiaderente
+Forma de bolo"></textarea>
+      <div class="row">
+        <button id="seed-btn">Carregar lista</button>
+        <button id="clear-btn" class="danger">Limpar tudo</button>
+      </div>
+      <p class="muted small">Dica: acesse com <code>?admin=1</code> no final da URL para mostrar este painel.</p>
+    </section>
+  </main>
+
+  <footer>
+    <p class="muted small">Feito com ❤️ para seu chá de panela.</p>
+  </footer>
+
+  <!-- Firebase SDKs (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+
+  <script src="app.js"></script>
+</body>
+</html>
